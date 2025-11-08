@@ -1,0 +1,21 @@
+# requirements.txt
+
+# Core Computer Vision & AI
+opencv-python
+deepface
+
+# Audio Generation & Playback
+gTTS
+pygame
+
+# Hardware: Pi 5 GPIO Control
+gpiozero
+
+# Hardware: Gyroscope Sensor
+# (Using the one from our previous discussion.
+# Change this if your sensor model is different!)
+mpu6050-raspberrypi
+
+# Hardware: Microphone (for yell detection)
+sounddevice
+numpy
