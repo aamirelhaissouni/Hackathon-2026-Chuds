@@ -7,7 +7,7 @@ import numpy as np
 import time
 
 # --- CONFIGURATION ---
-YELL_THRESHOLD = 0.4  # Start around 0.3, adjust if needed
+YELL_THRESHOLD = 0.7  # Start around 0.3, adjust if needed
 SAMPLE_RATE = 44100   # Standard audio sample rate
 BLOCK_SIZE = 1024     # Samples per chunk of audio
 
