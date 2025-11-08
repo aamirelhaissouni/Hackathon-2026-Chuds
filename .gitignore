@@ -1,0 +1,15 @@
+.DS_Store
+venv/
+.venv/
+pycache/
+*.pyc
+*.pyo
+*.pyd
+.vscode/
+.idea/
+_roast.mp3
+test_audio.mp3
+test.jpg
+*.log
+*.sqlite3
+*.db
