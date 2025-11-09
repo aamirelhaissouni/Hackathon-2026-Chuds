@@ -91,14 +91,6 @@ def check_for_shake(gyro_obj):
 if __name__ == "__main__":
     print("=== Testing Hardware Module ===")
     
-    # Test dummy LED
-    print("\n1. Testing LightControl (dummy)...")
-    light = LightControl()
-    light.on()
-    light.off()
-    light.flash(3)
-    print("   (No actual LED hardware - all operations are no-ops)")
-    
     # Test Arduino connection
     print("\n2. Testing Arduino connection...")
     gyro = setup_gyro()
