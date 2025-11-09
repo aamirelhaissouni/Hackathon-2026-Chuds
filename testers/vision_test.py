@@ -126,14 +126,11 @@ if __name__ == "__main__":
     try:
         while True:
             # 1. Read a frame (FAST)
-            frame_rgb = picam2.capture_array()
+            frame_bgr = picam2.capture_array()
             
             # 2. Update the shared frame for the worker thread (FAST)
             with data_lock:
-                latest_frame = frame_rgb.copy()
-            
-            # 3. Convert to BGR for OpenCV drawing (FAST)
-            frame_bgr = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
+                latest_frame = frame_bgr.copy()
             
             # 4. Read shared variables (FAST)
             with data_lock:
