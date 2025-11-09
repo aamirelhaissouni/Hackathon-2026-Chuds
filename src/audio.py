@@ -3,126 +3,72 @@ from gtts import gTTS
 import os
 import time
 
+# --- THIS IS YOUR CONTRACT WITH MAIN.PY ---
+
 class Speaker:
     """
-    Text-to-speech speaker using gTTS and pygame.
+    Handles Text-to-Speech (gTTS) and audio playback (Pygame).
+    Assumes audio is already routed to GPIO 18 via /boot/config.txt
     """
+    
+    # Define a temporary file to save the MP3
+    # Using '__temp.mp3' is a common convention
+    TEMP_AUDIO_FILE = "_roast.mp3"
+
     def __init__(self):
-        """Initialize the speaker (pygame mixer will be initialized on first use)."""
-        self.temp_file = "temp_roast_audio.mp3"
-        pygame.mixer.init()
-    
-    def speak(self, text):
         """
-        Generate audio from text and play it.
-        
-        Args:
-            text (str): The text to speak
+        Initializes the Pygame mixer.
         """
         try:
-            # Generate the audio file
-            print(f"Generating audio: '{text[:50]}...'")
-            tts = gTTS(text=text, lang='en', tld='co.in')  # Indian accent
-            tts.save(self.temp_file)
+            pygame.mixer.init()
+            print("Audio: Pygame mixer initialized.")
+        except Exception as e:
+            print(f"AUDIO ERROR: Failed to initialize pygame.mixer: {e}")
+            print("Audio: Speaker will be disabled.")
+            # We don't set a 'ready' flag because gTTS might still work
+            # But we should be careful.
             
-            # Play the audio
-            pygame.mixer.music.load(self.temp_file)
+    def speak(self, text_to_speak):
+        """
+        Takes a string of text, saves it as an MP3, and plays it.
+        This is a BLOCKING function - it will wait until the audio is done.
+        """
+        print(f"Audio: Speaking... '{text_to_speak[:30]}...'")
+        
+        # --- 1. Generate MP3 from Text (gTTS) ---
+        try:
+            tts = gTTS(text=text_to_speak, lang='en')
+            tts.save(self.TEMP_AUDIO_FILE)
+        except Exception as e:
+            print(f"AUDIO ERROR: gTTS failed: {e}")
+            print("Audio: Do you have an internet connection?")
+            return # Exit the function
+
+        # --- 2. Play the MP3 (Pygame) ---
+        try:
+            # Load the file we just saved
+            pygame.mixer.music.load(self.TEMP_AUDIO_FILE)
+            
+            # Play it
             pygame.mixer.music.play()
-            
-            # Wait for playback to finish
+
+            # --- IMPORTANT ---
+            # Wait for the audio to finish playing
+            # This prevents the main loop from trying to play
+            # multiple roasts on top of each other.
             while pygame.mixer.music.get_busy():
-                time.sleep(0.1)
-            
-            print("Audio playback finished.")
-            
+                time.sleep(0.05) # Check 20 times a second
+                
         except Exception as e:
-            print(f"Speaker ERROR: {e}")
-        
+            print(f"AUDIO ERROR: Pygame failed to play: {e}")
+            print("Audio: Is the audio device configured correctly on the Pi?")
+            
         finally:
-            # Clean up
-            self._cleanup()
-    
-    def _cleanup(self):
-        """Clean up temporary audio file."""
-        try:
-            if pygame.mixer.get_init():
-                pygame.mixer.music.stop()
-                if hasattr(pygame.mixer.music, 'unload'):
-                    pygame.mixer.music.unload()
-            
-            # Remove temp file
-            if os.path.exists(self.temp_file):
-                time.sleep(0.2)  # Give a moment for file to be released
-                os.remove(self.temp_file)
-        except Exception as e:
-            print(f"Cleanup warning: {e}")
-    
-    def __del__(self):
-        """Cleanup on object destruction."""
-        try:
-            pygame.mixer.quit()
-        except:
-            pass
-
-
-def test_audio_pipeline():
-    """
-    Tests the full text-to-speech and playback pipeline.
-    """
-    print("--- TESTING AUDIO ---")
-    
-    # Test with RoastMaster
-    try:
-        from roaster import RoastMaster
-        
-        roaster = RoastMaster()
-        speaker = Speaker()
-        
-        print("\n=== Testing different roast categories ===\n")
-        
-        # Test angry roast
-        print("1. Testing ANGRY roast:")
-        text_to_say = roaster.get_roast(emotion_key='angry', player_id='left') 
-        print(f"   Roast: {text_to_say}")
-        speaker.speak(text_to_say)
-        time.sleep(1)
-
-        # Test sad roast
-        print("\n2. Testing SAD roast:")
-        text_to_say = roaster.get_roast(emotion_key='sad', player_id='left')
-        print(f"   Roast: {text_to_say}")
-        speaker.speak(text_to_say)
-        time.sleep(1)
-
-        # Test shake roast
-        print("\n2. Testing SHAKE roast:")
-        text_to_say = roaster.get_roast(emotion_key='shake', player_id='right')
-        print(f"   Roast: {text_to_say}")
-        speaker.speak(text_to_say)
-        time.sleep(1)
-
-        # Test yell roast
-        print("\n2. Testing YELL roast:")
-        text_to_say = roaster.get_roast(emotion_key='yell', player_id='left')
-        print(f"   Roast: {text_to_say}")
-        speaker.speak(text_to_say)
-        time.sleep(1)
-        
-        # Test neutral roast
-        print("\n3. Testing NEUTRAL roast:")
-        text_to_say = roaster.get_roast(emotion_key='neutral', player_id='right')
-        print(f"   Roast: {text_to_say}")
-        speaker.speak(text_to_say)
-        
-    except Exception as e:
-        print(f"Could not import RoastMaster: {e}")
-        print("Testing with fallback text...")
-        text_to_say = "This is a short test audio to verify playback and cleanup."
-        speaker = Speaker()
-        speaker.speak(text_to_say)
-    
-    print("\n--- AUDIO TEST COMPLETE ---")
-
-
-if __name__ == "__main__":
-    test_audio_pipeline()
+            # --- 3. Clean up ---
+            # We can (optionally) remove the file after playing
+            # This is good practice.
+            try:
+                if os.path.exists(self.TEMP_AUDIO_FILE):
+                    os.remove(self.TEMP_AUDIO_FILE)
+            except Exception as e:
+                print(f"AUDIO ERROR: Failed to remove temp file: {e}")
