@@ -3,6 +3,7 @@
 # Core Computer Vision & AI
 opencv-python
 deepface
+tf-keras
 
 # Audio Generation & Playback
 gTTS
