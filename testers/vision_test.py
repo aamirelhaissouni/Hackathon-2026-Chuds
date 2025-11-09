@@ -7,7 +7,7 @@ import time
 try:
     # -- Initialize piccam2 --
     picam2 = Picamera2()
-    picam2.configure(picam2.create_preview_configuration(main={"format": 'XRGB8888', "size": (640, 480)}))
+    picam2.configure(picam2.create_preview_configuration(main={"format": 'RGB888', "size": (1280, 720)}))
     picam2.start()
     time.sleep(2)  # Allow camera to warm up
 
@@ -42,9 +42,9 @@ print("Starting camera feed. Press 'q' to quit.")
 try:
     while True:
         # 1. Read a frame (this is fast)
-        frame_rgba = picam2.capture_array()
+        frame_rgb = picam2.capture_array()
         ##convert the fram colors so it wokrks with cv2
-        frame = cv2.cvtColor(frame_rgba, cv2.COLOR_RGBA2BGR)
+        frame = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
         current_time = time.time()
         
         # 2. Run HEAVY analysis only on the interval
@@ -76,10 +76,14 @@ try:
                         race = face['dominant_race']
                         
                         if face_x < center_line:
+                            if emotion == "fear":
+                                emotion == "angry"
                             player_1_emotion = emotion
                             player_1_race = race
                             player_1_box = face['region'] # <-- STORE THE BOX
                         else:
+                            if emotion == "fear":
+                                emotion == "angry"
                             player_2_emotion = emotion
                             player_2_race = race
                             player_2_box = face['region'] # <-- STORE THE BOX
