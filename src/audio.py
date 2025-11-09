@@ -3,90 +3,112 @@ from gtts import gTTS
 import os
 import time
 
+class Speaker:
+    """
+    Text-to-speech speaker using gTTS and pygame.
+    """
+    def __init__(self):
+        """Initialize the speaker (pygame mixer will be initialized on first use)."""
+        self.temp_file = "temp_roast_audio.mp3"
+        pygame.mixer.init()
+    
+    def speak(self, text):
+        """
+        Generate audio from text and play it.
+        
+        Args:
+            text (str): The text to speak
+        """
+        try:
+            # Generate the audio file
+            print(f"Generating audio: '{text[:50]}...'")
+            tts = gTTS(text=text, lang='en', tld='co.in')  # Indian accent
+            tts.save(self.temp_file)
+            
+            # Play the audio
+            pygame.mixer.music.load(self.temp_file)
+            pygame.mixer.music.play()
+            
+            # Wait for playback to finish
+            while pygame.mixer.music.get_busy():
+                time.sleep(0.1)
+            
+            print("Audio playback finished.")
+            
+        except Exception as e:
+            print(f"Speaker ERROR: {e}")
+        
+        finally:
+            # Clean up
+            self._cleanup()
+    
+    def _cleanup(self):
+        """Clean up temporary audio file."""
+        try:
+            if pygame.mixer.get_init():
+                pygame.mixer.music.stop()
+                if hasattr(pygame.mixer.music, 'unload'):
+                    pygame.mixer.music.unload()
+            
+            # Remove temp file
+            if os.path.exists(self.temp_file):
+                time.sleep(0.2)  # Give a moment for file to be released
+                os.remove(self.temp_file)
+        except Exception as e:
+            print(f"Cleanup warning: {e}")
+    
+    def __del__(self):
+        """Cleanup on object destruction."""
+        try:
+            pygame.mixer.quit()
+        except:
+            pass
+
+
 def test_audio_pipeline():
     """
     Tests the full text-to-speech and playback pipeline.
     """
     print("--- TESTING AUDIO ---")
     
-    # --- 1. Test gTTS (Text -> MP3) ---
-    print("Step 1: Generating MP3 with gTTS...")
-    # Import get_roasts here so failures in roaster.py don't break module import
+    # Test with RoastMaster
     try:
-        from roaster import get_roasts
-        text_to_say = get_roasts()
+        from roaster import RoastMaster
+        
+        roaster = RoastMaster()
+        speaker = Speaker()
+        
+        print("\n=== Testing different roast categories ===\n")
+        
+        # Test angry roast
+        print("1. Testing ANGRY roast:")
+        text_to_say = roaster.get_roast('angry', 'left')
+        print(f"   Roast: {text_to_say}")
+        speaker.speak(text_to_say)
+        time.sleep(1)
+
+        # Test sad roast
+        print("\n2. Testing SAD roast:")
+        text_to_say = roaster.get_roast('sad', 'left')
+        print(f"   Roast: {text_to_say}")
+        speaker.speak(text_to_say)
+        time.sleep(1)
+        
+        # Test neutral roast
+        print("\n3. Testing NEUTRAL roast:")
+        text_to_say = roaster.get_roast('neutral', 'right')
+        print(f"   Roast: {text_to_say}")
+        speaker.speak(text_to_say)
+        
     except Exception as e:
-        print(f"Could not import/get roasts: {e}. Using fallback text.")
+        print(f"Could not import RoastMaster: {e}")
+        print("Testing with fallback text...")
         text_to_say = "This is a short test audio to verify playback and cleanup."
-    temp_file = "test_audio.mp3"
+        speaker = Speaker()
+        speaker.speak(text_to_say)
     
-    try:
-        tts = gTTS(text=text_to_say, lang='en', tld='co.in') #co.in is indian accent
-        tts.save(temp_file)
-        print(f"Successfully saved '{temp_file}'.")
-    except Exception as e:
-        print(f"gTTS FAILED: {e}")
-        print("Do you have an internet connection?")
-        return
+    print("\n--- AUDIO TEST COMPLETE ---")
 
-    # --- 2. Test Pygame (MP3 -> Sound) ---
-    print("Step 2: Playing MP3 with Pygame...")
-    
-    try:
-        # Initialize the mixer
-        pygame.mixer.init()
-        
-        # Load the audio file
-        pygame.mixer.music.load(temp_file)
-        
-        # Play the audio file
-        pygame.mixer.music.play()
-        print("Playing audio... You should hear it now.")
-        
-        # Wait for the music to finish playing
-        while pygame.mixer.music.get_busy():
-            time.sleep(0.1)
-            
-        print("Audio playback finished.")
-        
-    except Exception as e:
-        print(f"Pygame FAILED: {e}")
-        print("Do you have an audio output device selected?")
-    
-    finally:
-        # Ensure pygame releases the file and mixer is shutdown before deleting the temp file
-        try:
-            # Only try to stop/unload/quit if the mixer was initialized
-            if pygame.mixer.get_init():
-                try:
-                    pygame.mixer.music.stop()
-                except Exception:
-                    pass
 
-                # pygame 2.0+ has unload to free the music file; use if available
-                try:
-                    if hasattr(pygame.mixer.music, 'unload'):
-                        pygame.mixer.music.unload()
-                except Exception:
-                    pass
-
-                try:
-                    pygame.mixer.quit()
-                except Exception:
-                    pass
-        except Exception:
-            # Defensive: if anything goes wrong accessing pygame, continue to cleanup attempt
-            pass
-
-        # Clean up the test file (handle case where file is still locked)
-        if os.path.exists(temp_file):
-            try:
-                os.remove(temp_file)
-                print(f"Cleaned up '{temp_file}'.")
-            except PermissionError as e:
-                print(f"Could not remove '{temp_file}': {e}. It may still be in use by another process.")
-
-# --- This makes the script runnable ---
 if __name__ == "__main__":
     test_audio_pipeline()
-    print("--- AUDIO TEST COMPLETE ---")
