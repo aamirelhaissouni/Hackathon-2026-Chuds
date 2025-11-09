@@ -8,7 +8,7 @@ import threading
 try:
     from picamera2 import Picamera2
     from deepface import DeepFace  # <-- FIX: Added missing DeepFace import
-    from hardware import LightControl, setup_gyro, check_for_shake
+    from hardware import setup_gyro, check_for_shake
     from audio import Speaker
     from roaster import RoastMaster
     from microphone import MicrophoneMonitor
@@ -141,13 +141,10 @@ def main_app():
         return
 
     # Initialize our custom hardware/audio classes
-    light = LightControl()
     gyro = setup_gyro()
     mic = MicrophoneMonitor()  # <-- FIX: Initialize the microphone
     roaster = RoastMaster()
     speaker = Speaker()
-
-    light.on()  # Turn on LED ring
 
     # --- 2. Start the Analysis Thread ---
     analysis_thread = threading.Thread(target=analysis_worker, daemon=True)
@@ -241,7 +238,6 @@ def main_app():
         # --- 9. Clean up ---
         print("[Main Thread] Stopping threads and hardware...")
         app_running = False  # Signal the analysis thread to stop
-        light.off()
         mic.stop() # <-- FIX: This now works
         analysis_thread.join()  # Wait for thread to finish
         picam2.stop()
