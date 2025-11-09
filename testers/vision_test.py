@@ -1,9 +1,23 @@
 import cv2
+import numpy as np
+from picamera2 import Picamera2
 from deepface import DeepFace
 import time
 
+try:
+    # -- Initialize piccam2 --
+    picam2 = Picamera2()
+    picam2.configure(picam2.create_preview_configuration(main={"format": 'XRGB8888', "size": (640, 480)}))
+    picam2.start()
+    time.sleep(2)  # Allow camera to warm up
+
+except RuntimeError as e:
+    print(f"Error initializing camera: {e}")
+    exit()
+
+
 # --- SETTINGS ---
-ANALYSIS_INTERVAL = 0.5  # (in seconds)
+ANALYSIS_INTERVAL = 0.3  # (in seconds)
 last_analysis_time = 0
 
 # --- FONT & BOX for drawing ---
@@ -13,11 +27,6 @@ FONT_COLOR = (255, 255, 255)  # White
 BOX_COLOR = (0, 255, 0)      # Green
 LINE_TYPE = 2
 
-# --- Initialize Camera ---
-cap = cv2.VideoCapture(0)
-if not cap.isOpened():
-    print("Error: Could not open camera.")
-    exit()
 
 # --- Initialize player emotion AND box variables ---
 # These will store the "last known" state
@@ -33,11 +42,9 @@ print("Starting camera feed. Press 'q' to quit.")
 try:
     while True:
         # 1. Read a frame (this is fast)
-        success, frame = cap.read()
-        if not success:
-            print("Error: Can't receive frame.")
-            break
-
+        frame_rgba = picam2.capture_array()
+        ##convert the fram colors so it wokrks with cv2
+        frame = cv2.cvtColor(frame_rgba, cv2.COLOR_RGBA2BGR)
         current_time = time.time()
         
         # 2. Run HEAVY analysis only on the interval
@@ -127,6 +134,6 @@ try:
 
 finally:
     # Clean up
-    cap.release()
+    picam2.stop()
     cv2.destroyAllWindows()
     print("Test script finished.")
