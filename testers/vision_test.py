@@ -3,22 +3,27 @@ import numpy as np
 from picamera2 import Picamera2
 from deepface import DeepFace
 import time
+import threading  # We import the threading module
 
-try:
-    # -- Initialize piccam2 --
-    picam2 = Picamera2()
-    picam2.configure(picam2.create_preview_configuration(main={"format": 'RGB888', "size": (1280, 720)}))
-    picam2.start()
-    time.sleep(2)  # Allow camera to warm up
-
-except RuntimeError as e:
-    print(f"Error initializing camera: {e}")
-    exit()
-
+# --- Threading & Shared Data ---
+# These variables will be shared between the main (video) thread
+# and the (AI) worker thread.
+data_lock = threading.Lock()
+latest_frame = None
+player_1_emotion = "unknown"
+player_2_emotion = "unknown"
+player_1_race = "unknown"
+player_2_race = "unknown"
+player_1_box = None
+player_2_box = None
+app_running = True  # A flag to tell the thread to stop
 
 # --- SETTINGS ---
-ANALYSIS_INTERVAL = 0.3  # (in seconds)
-last_analysis_time = 0
+# We can now afford a more accurate, slower analysis
+ANALYSIS_INTERVAL = 0.5  # Run analysis every 0.5 seconds
+CAMERA_WIDTH = 1280
+CAMERA_HEIGHT = 720
+CENTER_LINE = CAMERA_WIDTH / 2
 
 # --- FONT & BOX for drawing ---
 FONT = cv2.FONT_HERSHEY_SIMPLEX
@@ -27,117 +32,143 @@ FONT_COLOR = (255, 255, 255)  # White
 BOX_COLOR = (0, 255, 0)      # Green
 LINE_TYPE = 2
 
+# ===================================================================
+# This function runs in the background thread
+# ===================================================================
+def analysis_worker():
+    global latest_frame, data_lock, app_running
+    global player_1_emotion, player_2_emotion, player_1_race, player_2_race, player_1_box, player_2_box
 
-# --- Initialize player emotion AND box variables ---
-# These will store the "last known" state
-player_1_emotion = "unknown"
-player_2_emotion = "unknown"
-player_1_race = "unknown"
-player_2_race = "unknown"
-player_1_box = None  # This will store the {'x', 'y', 'w', 'h'} dict
-player_2_box = None
-
-print("Starting camera feed. Press 'q' to quit.")
-
-try:
-    while True:
-        # 1. Read a frame (this is fast)
-        frame_rgb = picam2.capture_array()
-        ##convert the fram colors so it wokrks with cv2
-        frame = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
-        current_time = time.time()
+    print("Analysis thread started.")
+    
+    while app_running:
+        frame_to_analyze = None
         
-        # 2. Run HEAVY analysis only on the interval
-        if current_time - last_analysis_time > ANALYSIS_INTERVAL:
-            last_analysis_time = current_time
+        # 1. Safely get a copy of the latest frame
+        with data_lock:
+            if latest_frame is not None:
+                frame_to_analyze = latest_frame.copy()
+
+        if frame_to_analyze is None:
+            time.sleep(ANALYSIS_INTERVAL)
+            continue
             
-            frame_height, frame_width, _ = frame.shape
-            center_line = frame_width / 2
+        # 2. Run the HEAVY analysis (this is the slow part)
+        try:
+            # OPTIMIZATION: DeepFace prefers RGB, so we give it the RGB frame
+            results = DeepFace.analyze(
+                img_path=frame_to_analyze,
+                actions=['emotion', 'race'],
+                enforce_detection=False,
+                silent=True,
+                # --- TRY THESE FOR ACCURACY vs SPEED ---
+                # detector_backend = 'ssd'  # Faster, less accurate
+                detector_backend = 'mtcnn' # Slower, MUCH more accurate
+                # detector_backend = 'opencv' # Default
+            )
+            
+            # --- Reset values ---
+            p1_emotion, p1_race, p1_box = "unknown", "unknown", None
+            p2_emotion, p2_race, p2_box = "unknown", "unknown", None
 
-            try:
-                results = DeepFace.analyze(
-                    img_path=frame.copy(),
-                    actions=['emotion', 'race'],
-                    enforce_detection=False,
-                    silent=True
-                )
+            if isinstance(results, list) and len(results) > 0:
+                for face in results:
+                    face_x = face['region']['x']
+                    emotion = face['dominant_emotion']
+                    race = face['dominant_race']
+                    
+                    # Re-map 'fear' to 'angry'
+                    if emotion == "fear":
+                        emotion = "angry"  # Use ONE '='
 
-                # --- NEW: Reset boxes on each new analysis ---
-                # This ensures old boxes disappear if faces are no longer found
-                player_1_emotion = "unknown"
-                player_2_emotion = "unknown"
-                player_1_box = None
-                player_2_box = None
-                
-                if isinstance(results, list) and len(results) > 0:
-                    for face in results:
-                        face_x = face['region']['x']
-                        emotion = face['dominant_emotion']
-                        race = face['dominant_race']
-                        
-                        if face_x < center_line:
-                            if emotion == "fear":
-                                emotion == "angry"
-                            player_1_emotion = emotion
-                            player_1_race = race
-                            player_1_box = face['region'] # <-- STORE THE BOX
-                        else:
-                            if emotion == "fear":
-                                emotion == "angry"
-                            player_2_emotion = emotion
-                            player_2_race = race
-                            player_2_box = face['region'] # <-- STORE THE BOX
-                
-            except Exception as e:
-                player_1_emotion = "unknown"
-                player_2_emotion = "unknown"
-                player_1_race = "unknown"
-                player_2_race = "unknown"
-                player_1_box = None
-                player_2_box = None
+                    if face_x < CENTER_LINE:
+                        p1_emotion, p1_race, p1_box = emotion, race, face['region']
+                    else:
+                        p2_emotion, p2_race, p2_box = emotion, race, face['region']
+            
+            # 3. Safely update the global variables
+            with data_lock:
+                player_1_emotion, player_1_race, player_1_box = p1_emotion, p1_race, p1_box
+                player_2_emotion, player_2_race, player_2_box = p2_emotion, p2_race, p2_box
 
-        # 3. Draw player info on *every* frame (this is fast)
-        frame_height, frame_width, _ = frame.shape
-        
-        # --- Draw Player 1 (Left) Info ---
-        cv2.putText(
-            img=frame,
-            text=f"Player 1 (Left): Emotion:{player_1_emotion}, Race: {player_1_race}",
-            org=(10, 30),
-            fontFace=FONT,
-            fontScale=FONT_SCALE,
-            color=FONT_COLOR,
-            thickness=LINE_TYPE
-        )
-        # --- NEW: Draw Player 1 Box if we have one ---
-        if player_1_box:
-            x, y, w, h = player_1_box['x'], player_1_box['y'], player_1_box['w'], player_1_box['h']
-            cv2.rectangle(frame, (x, y), (x+w, y+h), BOX_COLOR, LINE_TYPE)
+        except Exception as e:
+            # print(f"Analysis error: {e}")
+            with data_lock:
+                # Clear boxes if analysis fails
+                player_1_box, player_2_box = None, None
 
-        # --- Draw Player 2 (Right) Info ---
-        cv2.putText(
-            img=frame,
-            text=f"Player 2 (Right): Emotion: {player_2_emotion}, Race: {player_2_race}",
-            org=(int(frame_width / 2) + 10, 30),
-            fontFace=FONT,
-            fontScale=FONT_SCALE,
-            color=FONT_COLOR,
-            thickness=LINE_TYPE
-        )
-        # --- NEW: Draw Player 2 Box if we have one ---
-        if player_2_box:
-            x, y, w, h = player_2_box['x'], player_2_box['y'], player_2_box['w'], player_2_box['h']
-            cv2.rectangle(frame, (x, y), (x+w, y+h), BOX_COLOR, LINE_TYPE)
+        # 4. Wait for the next interval
+        time.sleep(ANALYSIS_INTERVAL)
+    
+    print("Analysis thread stopped.")
 
+# ===================================================================
+# This is the Main Thread
+# ===================================================================
+if __name__ == "__main__":
+    try:
+        # -- Initialize piccam2 --
+        picam2 = Picamera2()
+        picam2.configure(picam2.create_preview_configuration(main={"format": 'RGB888', "size": (CAMERA_WIDTH, CAMERA_HEIGHT)}))
+        picam2.start()
+        print("Camera warming up...")
+        time.sleep(1.0)
+    except Exception as e:
+        print(f"Error initializing camera: {e}")
+        exit()
 
-        # 4. Display the frame (this is fast)
-        cv2.imshow("Live Test Feed - Press 'q' to quit", frame)
+    # --- Start the Analysis Thread ---
+    analysis_thread = threading.Thread(target=analysis_worker, daemon=True)
+    analysis_thread.start()
 
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+    print("Starting camera feed. Press 'q' to quit.")
 
-finally:
-    # Clean up
-    picam2.stop()
-    cv2.destroyAllWindows()
-    print("Test script finished.")
+    try:
+        while True:
+            # 1. Read a frame (FAST)
+            frame_rgb = picam2.capture_array()
+            
+            # 2. Update the shared frame for the worker thread (FAST)
+            with data_lock:
+                latest_frame = frame_rgb.copy()
+            
+            # 3. Convert to BGR for OpenCV drawing (FAST)
+            frame_bgr = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
+            
+            # 4. Read shared variables (FAST)
+            with data_lock:
+                # Make local copies so we don't hold the lock
+                p1_emo_copy, p1_race_copy, p1_box_copy = player_1_emotion, player_1_race, player_1_box
+                p2_emo_copy, p2_race_copy, p2_box_copy = player_2_emotion, player_2_race, player_2_box
+
+            # 5. Draw player info on the BGR frame (FAST)
+            
+            # --- Draw Player 1 (Left) Info ---
+            cv2.putText(frame_bgr, f"Player 1: {p1_emo_copy} ({p1_race_copy})",
+                        (10, 30), FONT, FONT_SCALE, FONT_COLOR, LINE_TYPE)
+            if p1_box_copy:
+                x, y, w, h = p1_box_copy['x'], p1_box_copy['y'], p1_box_copy['w'], p1_box_copy['h']
+                cv2.rectangle(frame_bgr, (x, y), (x+w, y+h), BOX_COLOR, LINE_TYPE)
+
+            # --- Draw Player 2 (Right) Info ---
+            cv2.putText(frame_bgr, f"Player 2: {p2_emo_copy} ({p2_race_copy})",
+                        (int(CENTER_LINE) + 10, 30), FONT, FONT_SCALE, FONT_COLOR, LINE_TYPE)
+            if p2_box_copy:
+                x, y, w, h = p2_box_copy['x'], p2_box_copy['y'], p2_box_copy['w'], p2_box_copy['h']
+                cv2.rectangle(frame_bgr, (x, y), (x+w, y+h), BOX_COLOR, LINE_TYPE)
+
+            # 6. Display the frame (FAST)
+            cv2.imshow("Live Test Feed - Press 'q' to quit", frame_bgr)
+
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+
+    finally:
+        # Clean up
+        print("Stopping threads and camera...")
+        app_running = False  # Signal the thread to stop
+        analysis_thread.join() # Wait for thread to finish
+        picam2.stop()
+        cv2.destroyAllWindows()
+        print("Test script finished.")
+
