@@ -160,14 +160,13 @@ def main_app():
             current_time = time.time()
 
             # --- 1. Read Frame (FAST) ---
-            frame_rgb = picam2.capture_array()
+            frame_bgr = picam2.capture_array()
 
             # --- 2. Update Shared Frame (FAST) ---
             with data_lock:
-                latest_frame = frame_rgb.copy()
+                latest_frame = frame_bgr.copy()
 
-            # --- 3. Convert to BGR for OpenCV drawing (FAST) ---
-            frame_bgr = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
+            ##deleted useless bgr to rgb conversion or whatever
 
             # --- 4. Read Shared AI Data (FAST) ---
             with data_lock:
