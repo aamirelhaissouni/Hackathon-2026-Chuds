@@ -1,9 +1,8 @@
 import time
-from rpi_ws281x import PixelStrip, Color
+from Pi5Neo import Pi5Neo
 from mpu6050 import mpu6050
 
 # --- CONFIGURATION ---
-LED_PIN = 18         # GPIO 18 (PWM) - MUST use this pin for NeoPixels
 LED_COUNT = 12       # 12 LEDs in the ring
 LED_BRIGHTNESS = 128 # 0-255, where 128 = 50% brightness (KEEP AT OR BELOW 128!)
 GYRO_ADDRESS = 0x68  # Default I2C address for MPU-6050
@@ -13,47 +12,42 @@ def test_led():
     """Tests the NeoPixel LED ring."""
     print("--- TESTING NEOPIXEL RING ---")
     try:
-        # Initialize the NeoPixel strip
-        strip = PixelStrip(LED_COUNT, LED_PIN, brightness=LED_BRIGHTNESS)
-        strip.begin()
+        # Initialize the NeoPixel ring
+        # Pi5Neo automatically uses SPI (no pin specification needed)
+        strip = Pi5Neo('/dev/spidev0.0', LED_COUNT, LED_BRIGHTNESS)
         
         print("LEDs ON (RED) for 1 second...")
-        for i in range(LED_COUNT):
-            strip.setPixelColor(i, Color(255, 0, 0))  # Red
-        strip.show()
+        strip.fill_strip(255, 0, 0)  # Red (R, G, B)
+        strip.update_strip()
         time.sleep(1)
         
         print("LEDs OFF for 1 second...")
-        for i in range(LED_COUNT):
-            strip.setPixelColor(i, Color(0, 0, 0))  # Off
-        strip.show()
+        strip.fill_strip(0, 0, 0)  # Off
+        strip.update_strip()
         time.sleep(1)
         
         print("LEDs Flashing RED 3 times...")
         for j in range(3):
             # ON
-            for i in range(LED_COUNT):
-                strip.setPixelColor(i, Color(255, 0, 0))  # Red
-            strip.show()
+            strip.fill_strip(255, 0, 0)  # Red
+            strip.update_strip()
             time.sleep(0.2)
             
             # OFF
-            for i in range(LED_COUNT):
-                strip.setPixelColor(i, Color(0, 0, 0))  # Off
-            strip.show()
+            strip.fill_strip(0, 0, 0)  # Off
+            strip.update_strip()
             time.sleep(0.2)
         
         print("NeoPixel Test Complete.")
         
         # Turn off all LEDs
-        for i in range(LED_COUNT):
-            strip.setPixelColor(i, Color(0, 0, 0))
-        strip.show()
+        strip.fill_strip(0, 0, 0)
+        strip.update_strip()
         
     except Exception as e:
         print(f"NEOPIXEL TEST FAILED: {e}")
-        print(f"Is the NeoPixel ring wired to GPIO {LED_PIN}?")
-        print("You may need to run this script with sudo!")
+        print("Make sure SPI is enabled: sudo raspi-config -> Interface Options -> SPI")
+        print("Is the NeoPixel ring wired correctly?")
 
 def test_gyro():
     """Tests the Gyroscope sensor."""
