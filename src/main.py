@@ -3,52 +3,47 @@ import numpy as np
 import time
 import threading
 
-# project modules
+# --- Import Your Project Modules ---
+# These are the .py files from your teammates
 try:
     from picamera2 import Picamera2
-<<<<<<< HEAD
-    from deepface import DeepFace      
-    from audio import Speaker      
-=======
-    from deepface import DeepFace  # <-- FIX: Added missing DeepFace import
-    from hardware import setup_gyro, check_for_shake
-    from audio import Speaker
-    from roaster import RoastMaster
-    from microphone import MicrophoneMonitor
->>>>>>> 2b6984b5745a02cdc855b477a565e40f866b38f2
+    from deepface import DeepFace      # From your original main.py
+    from audio import Speaker       # Using your new audio.py
 except ImportError as e:
     print(f"FATAL ERROR: Failed to import a module. {e}")
     print("Please ensure audio.py, picamera2, and deepface are available.")
     exit()
 
-# threading
+# --- Threading & Shared Data ---
 data_lock = threading.Lock()
 latest_frame = None
 player_1_emotion = "unknown"
 player_2_emotion = "unknown"
 player_1_box = None
 player_2_box = None
-app_running = True  # flag for thread 
+app_running = True  # A flag to tell the thread to stop
 
-# camera/capture settings
-ANALYSIS_INTERVAL = 0.5  # run analysis every 0.5 seconds
+# --- SETTINGS ---
+ANALYSIS_INTERVAL = 0.5  # Run analysis every 0.5 seconds
 CAMERA_WIDTH = 1280
 CAMERA_HEIGHT = 720
 CENTER_LINE = CAMERA_WIDTH / 2
 
-# cooldowns
+# --- Define Cooldown Variables ---
 AUDIO_COOLDOWN = 5.0  # 5 seconds before a new alert
 player_1_last_alert = 0.0
 player_2_last_alert = 0.0
 
-# font and box
+# --- FONT & BOX for drawing ---
 FONT = cv2.FONT_HERSHEY_SIMPLEX
 FONT_SCALE = 0.7
 FONT_COLOR = (255, 255, 255)  # White
 BOX_COLOR = (0, 255, 0)      # Green
 LINE_TYPE = 2
 
+# ===================================================================
 # This function runs in the background thread
+# ===================================================================
 def analysis_worker():
     """
     This worker thread handles the slow DeepFace analysis in the background
@@ -82,7 +77,7 @@ def analysis_worker():
                 detector_backend='mtcnn'
             )
 
-            # analyis variables
+            # --- Use local variables for analysis ---
             p1_emotion, p1_box = "unknown", None
             p2_emotion, p2_box = "unknown", None
 
@@ -120,12 +115,14 @@ def analysis_worker():
 
     print("[Analysis Thread] Stopped.")
 
-# main thread
+# ===================================================================
+# This is the Main Thread (Video Feed and App Logic)
+# ===================================================================
 def main_app():
     global latest_frame, data_lock, app_running
     global player_1_last_alert, player_2_last_alert
 
-    # initialize modules
+    # --- 1. Initialize All Modules ---
     print("[Main Thread] Initializing modules...")
     try:
         picam2 = Picamera2()
@@ -137,17 +134,9 @@ def main_app():
         print(f"FATAL ERROR: Could not initialize camera: {e}")
         return
 
-<<<<<<< HEAD
-    # Initialize our hardware 
+    # Initialize our custom hardware/audio classes
     speaker = Speaker()
     print("[Main Thread] Audio module initialized.")
-=======
-    # Initialize our custom hardware/audio classes
-    gyro = setup_gyro()
-    mic = MicrophoneMonitor()  # <-- FIX: Initialize the microphone
-    roaster = RoastMaster()
-    speaker = Speaker()
->>>>>>> 2b6984b5745a02cdc855b477a565e40f866b38f2
 
     # --- 2. Start the Analysis Thread ---
     analysis_thread = threading.Thread(target=analysis_worker, daemon=True)
@@ -165,11 +154,6 @@ def main_app():
             # --- 2. Update Shared Frame (FAST) ---
             with data_lock:
                 latest_frame = frame_bgr.copy()
-<<<<<<< HEAD
-=======
-
-            ##deleted useless bgr to rgb conversion or whatever
->>>>>>> 2b6984b5745a02cdc855b477a565e40f866b38f2
 
             # --- 4. Read Shared AI Data (FAST) ---
             with data_lock:
@@ -216,25 +200,21 @@ def main_app():
                 x, y, w, h = p2_box_copy['x'], p2_box_copy['y'], p2_box_copy['w'], p2_box_copy['h']
                 cv2.rectangle(frame_bgr, (x, y), (x + w, y + h), BOX_COLOR, 2)
 
-            # 8. Display the frame (FAST)
+            # --- 8. Display the frame (FAST) ---
             cv2.imshow("Rage-O-Meter - Press 'q' to quit", frame_bgr)
 
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
     finally:
-        # 9. Clean up
+        # --- 9. Clean up ---
         print("[Main Thread] Stopping threads and hardware...")
         app_running = False  # Signal the analysis thread to stop
-<<<<<<< HEAD
-=======
-        mic.stop() # <-- FIX: This now works
->>>>>>> 2b6984b5745a02cdc855b477a565e40f866b38f2
         analysis_thread.join()  # Wait for thread to finish
         picam2.stop()
         cv2.destroyAllWindows()
         print("[Main Thread] Shutdown complete.")
 
-# starts app
+# --- This starts the whole app ---
 if __name__ == "__main__":
     main_app()
