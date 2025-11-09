@@ -6,8 +6,16 @@ import threading
 # project modules
 try:
     from picamera2 import Picamera2
+<<<<<<< HEAD
     from deepface import DeepFace      
     from audio import Speaker      
+=======
+    from deepface import DeepFace  # <-- FIX: Added missing DeepFace import
+    from hardware import setup_gyro, check_for_shake
+    from audio import Speaker
+    from roaster import RoastMaster
+    from microphone import MicrophoneMonitor
+>>>>>>> 2b6984b5745a02cdc855b477a565e40f866b38f2
 except ImportError as e:
     print(f"FATAL ERROR: Failed to import a module. {e}")
     print("Please ensure audio.py, picamera2, and deepface are available.")
@@ -129,9 +137,17 @@ def main_app():
         print(f"FATAL ERROR: Could not initialize camera: {e}")
         return
 
+<<<<<<< HEAD
     # Initialize our hardware 
     speaker = Speaker()
     print("[Main Thread] Audio module initialized.")
+=======
+    # Initialize our custom hardware/audio classes
+    gyro = setup_gyro()
+    mic = MicrophoneMonitor()  # <-- FIX: Initialize the microphone
+    roaster = RoastMaster()
+    speaker = Speaker()
+>>>>>>> 2b6984b5745a02cdc855b477a565e40f866b38f2
 
     # --- 2. Start the Analysis Thread ---
     analysis_thread = threading.Thread(target=analysis_worker, daemon=True)
@@ -149,6 +165,11 @@ def main_app():
             # --- 2. Update Shared Frame (FAST) ---
             with data_lock:
                 latest_frame = frame_bgr.copy()
+<<<<<<< HEAD
+=======
+
+            ##deleted useless bgr to rgb conversion or whatever
+>>>>>>> 2b6984b5745a02cdc855b477a565e40f866b38f2
 
             # --- 4. Read Shared AI Data (FAST) ---
             with data_lock:
@@ -205,6 +226,10 @@ def main_app():
         # 9. Clean up
         print("[Main Thread] Stopping threads and hardware...")
         app_running = False  # Signal the analysis thread to stop
+<<<<<<< HEAD
+=======
+        mic.stop() # <-- FIX: This now works
+>>>>>>> 2b6984b5745a02cdc855b477a565e40f866b38f2
         analysis_thread.join()  # Wait for thread to finish
         picam2.stop()
         cv2.destroyAllWindows()

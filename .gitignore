@@ -15,4 +15,5 @@ test.jpg
 *.sqlite3
 *.db
 aienv/
+--pycache--/
 
