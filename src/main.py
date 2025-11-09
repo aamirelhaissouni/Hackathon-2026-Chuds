@@ -4,14 +4,14 @@ import time
 import threading
 
 # --- Import Your Project Modules ---
-# These are the .py files from your teammates
 try:
     from picamera2 import Picamera2
-    from deepface import DeepFace      # From your original main.py
-    from audio import Speaker       # Using your new audio.py
+    from deepface import DeepFace
+    from audio import Speaker
+    from roaster import RoastMaster
 except ImportError as e:
     print(f"FATAL ERROR: Failed to import a module. {e}")
-    print("Please ensure audio.py, picamera2, and deepface are available.")
+    print("Please ensure all files are in src/ and requirements.txt is installed.")
     exit()
 
 # --- Threading & Shared Data ---
@@ -30,9 +30,9 @@ CAMERA_HEIGHT = 720
 CENTER_LINE = CAMERA_WIDTH / 2
 
 # --- Define Cooldown Variables ---
-AUDIO_COOLDOWN = 5.0  # 5 seconds before a new alert
-player_1_last_alert = 0.0
-player_2_last_alert = 0.0
+ROAST_COOLDOWN = 10.0  # 10 seconds before a new roast
+player_1_last_roast = 0.0
+player_2_last_roast = 0.0
 
 # --- FONT & BOX for drawing ---
 FONT = cv2.FONT_HERSHEY_SIMPLEX
@@ -57,27 +57,23 @@ def analysis_worker():
     while app_running:
         frame_to_analyze = None
 
-        # 1. Safely get a copy of the latest frame
         with data_lock:
             if latest_frame is not None:
-                # We work on a copy so the main thread can keep updating
                 frame_to_analyze = latest_frame.copy()
 
         if frame_to_analyze is None:
             time.sleep(ANALYSIS_INTERVAL)  # Wait for first frame
             continue
 
-        # 2. Run the HEAVY analysis (this is the slow part)
         try:
             results = DeepFace.analyze(
                 img_path=frame_to_analyze,
                 actions=['emotion'],
-                enforce_detection=False,  # Don't crash if no face
+                enforce_detection=False,
                 silent=True,
                 detector_backend='mtcnn'
             )
 
-            # --- Use local variables for analysis ---
             p1_emotion, p1_box = "unknown", None
             p2_emotion, p2_box = "unknown", None
 
@@ -94,7 +90,6 @@ def analysis_worker():
                     else:
                         p2_emotion, p2_box = emotion, face['region']
 
-            # 3. Safely update the global variables
             with data_lock:
                 player_1_emotion = p1_emotion
                 player_2_emotion = p2_emotion
@@ -102,15 +97,12 @@ def analysis_worker():
                 player_2_box = p2_box
 
         except Exception as e:
-            # print(f"[Analysis Thread] Error: {e}")
             with data_lock:
-                # Clear boxes if analysis fails
                 player_1_emotion = "unknown"
                 player_2_emotion = "unknown"
                 player_1_box = None
                 player_2_box = None
 
-        # 4. Wait for the next interval
         time.sleep(ANALYSIS_INTERVAL)
 
     print("[Analysis Thread] Stopped.")
@@ -120,9 +112,8 @@ def analysis_worker():
 # ===================================================================
 def main_app():
     global latest_frame, data_lock, app_running
-    global player_1_last_alert, player_2_last_alert
+    global player_1_last_roast, player_2_last_roast
 
-    # --- 1. Initialize All Modules ---
     print("[Main Thread] Initializing modules...")
     try:
         picam2 = Picamera2()
@@ -135,10 +126,9 @@ def main_app():
         return
 
     # Initialize our custom hardware/audio classes
+    roaster = RoastMaster()
     speaker = Speaker()
-    print("[Main Thread] Audio module initialized.")
 
-    # --- 2. Start the Analysis Thread ---
     analysis_thread = threading.Thread(target=analysis_worker, daemon=True)
     analysis_thread.start()
 
@@ -147,54 +137,52 @@ def main_app():
     try:
         while True:
             current_time = time.time()
+            frame_rgb = picam2.capture_array()
 
-            # --- 1. Read Frame (FAST) ---
-            frame_bgr = picam2.capture_array()
-
-            # --- 2. Update Shared Frame (FAST) ---
             with data_lock:
-                latest_frame = frame_bgr.copy()
+                latest_frame = frame_rgb.copy()
 
-            # --- 4. Read Shared AI Data (FAST) ---
+            frame_bgr = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
+
             with data_lock:
-                # Make local copies so we don't hold the lock
                 p1_emo_copy, p1_box_copy = player_1_emotion, player_1_box
                 p2_emo_copy, p2_box_copy = player_2_emotion, player_2_box
 
-            # --- 5. Check Hardware Triggers (FAST) ---
-            # All hardware/mic logic removed
+            # --- 6. ROASTING LOGIC (FIXED) ---
 
-            # --- 6. ALERT LOGIC (Replaces Roasting) ---
+            # --- Player 1 (Left) Roast ---
+            if p1_emo_copy == 'angry' and (current_time - player_1_last_roast > ROAST_COOLDOWN):
+                print("[Main Thread] ROAST: Player 1 (Left) is angry")
+                
+                # --- THIS IS THE FIX ---
+                # Get the funny roast text from the roaster module
+                roast_text = roaster.get_roast(emotion_key='angry', player_id='left')
+                
+                # Tell the speaker to say the funny roast
+                speaker.speak(roast_text)
+                
+                # Reset cooldowns
+                player_1_last_roast = current_time
+                player_2_last_roast = current_time # Reset both to prevent double-roasts
 
-            # --- Player 1 (Left) Alert ---
-            if p1_emo_copy == 'angry' and (current_time - player_1_last_alert > AUDIO_COOLDOWN):
-                print("[Main Thread] ALERT: Player 1 (Left) is angry")
+            # --- Player 2 (Right) Roast ---
+            elif p2_emo_copy == 'angry' and (current_time - player_2_last_roast > ROAST_COOLDOWN):
+                print("[Main Thread] ROAST: Player 2 (Right) is angry")
 
-                # Use a simple string, not the roaster
-                alert_text = "Player one seems angry."
-                speaker.speak(alert_text)
+                # --- THIS IS THE FIX ---
+                roast_text = roaster.get_roast(emotion_key='angry', player_id='right')
+                speaker.speak(roast_text)
 
-                player_1_last_alert = current_time
-
-            # --- Player 2 (Right) Alert ---
-            elif p2_emo_copy == 'angry' and (current_time - player_2_last_alert > AUDIO_COOLDOWN):
-                print("[Main Thread] ALERT: Player 2 (Right) is angry")
-
-                # Use a simple string, not the roaster
-                alert_text = "Player two is looking mad."
-                speaker.speak(alert_text)
-
-                player_2_last_alert = current_time
+                # Reset cooldowns
+                player_1_last_roast = current_time
+                player_2_last_roast = current_time
 
             # --- 7. Draw Overlay on Video Feed (FAST) ---
-            
-            # --- Draw Player 1 (Left) Info ---
             cv2.putText(frame_bgr, f"P1: {p1_emo_copy}", (10, 30), FONT, FONT_SCALE, FONT_COLOR, LINE_TYPE)
             if p1_box_copy:
                 x, y, w, h = p1_box_copy['x'], p1_box_copy['y'], p1_box_copy['w'], p1_box_copy['h']
                 cv2.rectangle(frame_bgr, (x, y), (x + w, y + h), BOX_COLOR, 2)
 
-            # --- Draw Player 2 (Right) Info ---
             cv2.putText(frame_bgr, f"P2: {p2_emo_copy}", (int(CENTER_LINE) + 10, 30), FONT, FONT_SCALE, FONT_COLOR, LINE_TYPE)
             if p2_box_copy:
                 x, y, w, h = p2_box_copy['x'], p2_box_copy['y'], p2_box_copy['w'], p2_box_copy['h']
