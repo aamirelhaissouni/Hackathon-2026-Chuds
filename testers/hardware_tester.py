@@ -1,37 +1,59 @@
 import time
-from gpiozero import LED
-# This is the assumed library. If yours is different, change this import.
+from rpi_ws281x import PixelStrip, Color
 from mpu6050 import mpu6050
 
 # --- CONFIGURATION ---
-LED_PIN = 17         # The GPIO pin (BCM numbering) the LED is connected to.
-GYRO_ADDRESS = 0x68  # Default I2C address for MPU-6050.
+LED_PIN = 18         # GPIO 18 (PWM) - MUST use this pin for NeoPixels
+LED_COUNT = 12       # 12 LEDs in the ring
+LED_BRIGHTNESS = 128 # 0-255, where 128 = 50% brightness (KEEP AT OR BELOW 128!)
+GYRO_ADDRESS = 0x68  # Default I2C address for MPU-6050
 SHAKE_THRESHOLD = 15 # !! TUNE THIS VALUE !!
 
 def test_led():
-    """Tests the LED ring."""
-    print("--- TESTING LED ---")
+    """Tests the NeoPixel LED ring."""
+    print("--- TESTING NEOPIXEL RING ---")
     try:
-        led = LED(LED_PIN)
+        # Initialize the NeoPixel strip
+        strip = PixelStrip(LED_COUNT, LED_PIN, brightness=LED_BRIGHTNESS)
+        strip.begin()
         
-        print("LED ON for 1 second...")
-        led.on()
+        print("LEDs ON (RED) for 1 second...")
+        for i in range(LED_COUNT):
+            strip.setPixelColor(i, Color(255, 0, 0))  # Red
+        strip.show()
         time.sleep(1)
         
-        print("LED OFF for 1 second...")
-        led.off()
+        print("LEDs OFF for 1 second...")
+        for i in range(LED_COUNT):
+            strip.setPixelColor(i, Color(0, 0, 0))  # Off
+        strip.show()
         time.sleep(1)
         
-        print("LED Flashing 3 times...")
-        led.blink(on_time=0.2, off_time=0.2, n=3)
-        time.sleep(2) # Wait for blink to finish
+        print("LEDs Flashing RED 3 times...")
+        for j in range(3):
+            # ON
+            for i in range(LED_COUNT):
+                strip.setPixelColor(i, Color(255, 0, 0))  # Red
+            strip.show()
+            time.sleep(0.2)
+            
+            # OFF
+            for i in range(LED_COUNT):
+                strip.setPixelColor(i, Color(0, 0, 0))  # Off
+            strip.show()
+            time.sleep(0.2)
         
-        print("LED Test Complete.")
-        led.off()
+        print("NeoPixel Test Complete.")
+        
+        # Turn off all LEDs
+        for i in range(LED_COUNT):
+            strip.setPixelColor(i, Color(0, 0, 0))
+        strip.show()
         
     except Exception as e:
-        print(f"LED TEST FAILED: {e}")
-        print("Is the LED wired to pin {LED_PIN}?")
+        print(f"NEOPIXEL TEST FAILED: {e}")
+        print(f"Is the NeoPixel ring wired to GPIO {LED_PIN}?")
+        print("You may need to run this script with sudo!")
 
 def test_gyro():
     """Tests the Gyroscope sensor."""
@@ -57,12 +79,10 @@ def test_gyro():
             ay = accel_data['y']
             az = accel_data['z']
             
-            # Print the Z-axis (usually the "up/down" slam)
-            # You can also use 'x' or 'y' depending on orientation
+            # Print all axes
             print(f"X: {ax:.2f}, Y: {ay:.2f}, Z: {az:.2f}")
 
             # Check for a "shake"
-            # We use abs() because a slam can be a positive or negative spike
             if abs(az) > SHAKE_THRESHOLD or abs(ax) > SHAKE_THRESHOLD or abs(ay) > SHAKE_THRESHOLD:
                 print(f"!!! SHAKE DETECTED !!! (Value: {max(abs(ax), abs(ay), abs(az)):.2f})")
                 
@@ -77,5 +97,8 @@ def test_gyro():
 
 # --- This makes the script runnable ---
 if __name__ == "__main__":
+    print("NOTE: This script may require sudo to control NeoPixels!")
+    print(f"Current brightness setting: {LED_BRIGHTNESS}/255 ({LED_BRIGHTNESS/255*100:.0f}%)")
+    print("=" * 50)
     test_led()
     test_gyro()
