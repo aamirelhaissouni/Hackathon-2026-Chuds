@@ -31,6 +31,18 @@ class RoastMaster:
             "Emotional damage detected",
             "This ain't it chief, go take a break"
         ],
+
+        'shake': [
+            "Did you drop the controller? Skill issue.",
+            "Stop shaking, your rage is pathetic.",
+            "Take a deep breath, or maybe a nap.",
+        ],
+
+        'yell': [
+            "Nobody cares about your sound effects, mute your mic.",
+            "Your voice is cracking, is that the sound of a breakdown?",
+            "Volume is not a measure of skill, kid.",
+        ],
        
         'neutral': [
             "You're playing like your monitor is off",
@@ -50,7 +62,7 @@ class RoastMaster:
         """Initialize the RoastMaster."""
         pass
     
-    def get_roast(self, category='neutral', player='unknown'):
+    def get_roast(self, emotion_key='neutral', player_id='unknown'):
         """
         Get a random roast from the specified category.
         
@@ -62,15 +74,15 @@ class RoastMaster:
             str: A roast string with player name filled in if applicable
         """
         # Get roasts for the category, default to neutral if category not found
-        roast_list = self.ROASTS.get(category, self.ROASTS['neutral'])
+        roast_list = self.ROASTS.get(emotion_key, self.ROASTS['neutral'])
         
         # Pick a random roast
         roast = random.choice(roast_list)
         
         # Add player context if needed
-        if player == 'left':
+        if player_id == 'left':
             roast = f"Player 1: {roast}"
-        elif player == 'right':
+        elif player_id == 'right':
             roast = f"Player 2: {roast}"
         
         return roast
@@ -99,7 +111,7 @@ if __name__ == "__main__":
     roaster = RoastMaster()
     
     # Test each category
-    categories = ['angry', 'sad', 'neutral']
+    categories = ['angry', 'sad', 'shake', 'yell', 'neutral']
     
     for category in categories:
         print(f"\n--- {category.upper()} ROASTS ---")

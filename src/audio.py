@@ -82,21 +82,35 @@ def test_audio_pipeline():
         
         # Test angry roast
         print("1. Testing ANGRY roast:")
-        text_to_say = roaster.get_roast('angry', 'left')
+        text_to_say = roaster.get_roast(emotion_key='angry', player_id='left') 
         print(f"   Roast: {text_to_say}")
         speaker.speak(text_to_say)
         time.sleep(1)
 
         # Test sad roast
         print("\n2. Testing SAD roast:")
-        text_to_say = roaster.get_roast('sad', 'left')
+        text_to_say = roaster.get_roast(emotion_key='sad', player_id='left')
+        print(f"   Roast: {text_to_say}")
+        speaker.speak(text_to_say)
+        time.sleep(1)
+
+        # Test shake roast
+        print("\n2. Testing SHAKE roast:")
+        text_to_say = roaster.get_roast(emotion_key='shake', player_id='right')
+        print(f"   Roast: {text_to_say}")
+        speaker.speak(text_to_say)
+        time.sleep(1)
+
+        # Test yell roast
+        print("\n2. Testing YELL roast:")
+        text_to_say = roaster.get_roast(emotion_key='yell', player_id='left')
         print(f"   Roast: {text_to_say}")
         speaker.speak(text_to_say)
         time.sleep(1)
         
         # Test neutral roast
         print("\n3. Testing NEUTRAL roast:")
-        text_to_say = roaster.get_roast('neutral', 'right')
+        text_to_say = roaster.get_roast(emotion_key='neutral', player_id='right')
         print(f"   Roast: {text_to_say}")
         speaker.speak(text_to_say)
         
