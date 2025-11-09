@@ -1,121 +1,66 @@
 import random
+
+# --- Simplified ROASTS dictionary ---
+ROASTS = {
+    'angry': [
+        "Hey {player_name}, why so angry?",
+        "Whoa, {player_name}, it's just a game. Relax.",
+        "{player_name}, you're scaring the webcam.",
+        "Looks like {player_name} is about to rage-quit.",
+        "I've seen toddlers handle losing better than you, {player_name}."
+    ],
+    'sad': [
+        "Aw, {player_name}, don't cry. You'll get 'em next time... maybe.",
+        "Cheer up, {player_name}. It's not like you were going to win anyway."
+    ],
+    'surprised': [
+        "What's wrong, {player_name}? Did you actually land a hit?",
+        "That's the 'I definitely messed up' face, {player_name}."
+    ],
+    'default': [
+        "You okay over there, {player_name}?",
+        "I'm just going to pretend I didn't see that."
+    ]
+}
+
+PLAYER_NAMES = {
+    'left': "fella on the left",
+    'right': "fella on the right",
+    'all': "all you scrubs" # Fallback
+}
+
+# --- THIS IS YOUR CONTRACT WITH MAIN.PY ---
+
 class RoastMaster:
     """
-    Generates context-aware roasts based on player emotion and trigger type.
+    Generates and formats roasts.
     """
-    
-    # Dictionary of roasts organized by category
-    ROASTS = {
-        'angry': [
-            "You're selling",
-            "Catching Ls only",
-            "You're trash kid", 
-            "Labronzo hop that ahh back on roblox",
-            "Pack it up",
-            "You're cooked",
-            "You're trolling",
-            "Absolutely washed",
-            "That's embarrassing",
-            "Delete the game"
-        ],
-
-        'sad': [
-            "Pack it up, it's bedtime",
-            "Someone call this man's therapist",
-            "Bro's getting emotional over pixels",
-            "The game hurt your feelings that bad?",
-            "You look like you just lost your lunch money",
-            "Depression speedrun any percent",
-            "Catching feelings and catching Ls",
-            "You're one loss away from tears",
-            "Emotional damage detected",
-            "This ain't it chief, go take a break"
-        ],
-
-        'shake': [
-            "Did you drop the controller? Skill issue.",
-            "Stop shaking, your rage is pathetic.",
-            "Take a deep breath, or maybe a nap.",
-        ],
-
-        'yell': [
-            "Nobody cares about your sound effects, mute your mic.",
-            "Your voice is cracking, is that the sound of a breakdown?",
-            "Volume is not a measure of skill, kid.",
-        ],
-       
-        'neutral': [
-            "You're playing like your monitor is off",
-            "Is this your first time touching a controller?",
-            "You're selling harder than a Black Friday sale",
-            "Absolutely washed",
-            "Delete the game",
-            "You're cooked",
-            "Catching Ls only",
-            "That's embarrassing",
-            "You're trolling right now",
-            "Pack it up"
-        ]
-    }
-    
     def __init__(self):
-        """Initialize the RoastMaster."""
+        print("Audio: RoastMaster Initialized.")
         pass
-    
-    def get_roast(self, emotion_key='neutral', player_id='unknown'):
+
+    def get_roast(self, emotion_key, player_id):
         """
-        Get a random roast from the specified category.
+        Gets a random roast, formatted for the specific player.
         
         Args:
-            category (str): The type of roast ('angry', 'sad', 'shake', 'yell', 'neutral')
-            player (str): Player identifier ('left', 'right', 'all', or player name)
-        
-        Returns:
-            str: A roast string with player name filled in if applicable
+            emotion_key (str): The emotion or trigger ('angry', 'sad')
+            player_id (str): The player to roast ('left', 'right', 'all')
         """
-        # Get roasts for the category, default to neutral if category not found
-        roast_list = self.ROASTS.get(emotion_key, self.ROASTS['neutral'])
+
+        # 1. Get the player's "name"
+        player_name = PLAYER_NAMES.get(player_id, "you")
+
+        # 2. Get the list of roasts
+        if emotion_key in ROASTS:
+            roast_list = ROASTS[emotion_key]
+        else:
+            roast_list = ROASTS['default']
+
+        # 3. Pick a random template
+        roast_template = random.choice(roast_list)
         
-        # Pick a random roast
-        roast = random.choice(roast_list)
+        # 4. Format the template with the player's name and return it
+        final_roast = roast_template.format(player_name=player_name)
         
-        # Add player context if needed
-        if player_id == 'left':
-            roast = f"Player 1: {roast}"
-        elif player_id == 'right':
-            roast = f"Player 2: {roast}"
-        
-        return roast
-
-
-# --- Standalone function for easy testing ---
-def get_roasts(category='neutral'):
-    """
-    Simple function that returns a random roast.
-    Used for testing and backwards compatibility.
-    
-    Args:
-        category (str): The roast category
-    
-    Returns:
-        str: A random roast
-    """
-    roaster = RoastMaster()
-    return roaster.get_roast(category)
-
-
-# --- Test the roaster ---
-if __name__ == "__main__":
-    print("=== ROAST MASTER TEST ===\n")
-    
-    roaster = RoastMaster()
-    
-    # Test each category
-    categories = ['angry', 'sad', 'shake', 'yell', 'neutral']
-    
-    for category in categories:
-        print(f"\n--- {category.upper()} ROASTS ---")
-        for i in range(3):
-            print(f"{i+1}. {roaster.get_roast(category, 'left')}")
-    
-    print("\n=== TEST COMPLETE ===")
+        return final_roast
